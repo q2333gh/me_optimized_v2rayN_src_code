@@ -355,6 +355,7 @@ namespace ServiceLib.ViewModels
             InitCronTasks();
         }
 
+        private DateTime _startTime = DateTime.Now;
         private int _retryCount = 0;
         private int _currentInterval = 10; // 初始间隔10秒
         private void InitCronTasks()
@@ -362,10 +363,14 @@ namespace ServiceLib.ViewModels
             var taskHandler = PeriodicTaskHandler.Instance;
             var updateHandler = new UpdateHandler();
             
-            // 检测连接状态，健康状态一分钟检查一次，一天也就 60*24 次。
+            // 检测连接状态
             _ = taskHandler.AddTask("ConnectivityCheckTask", TimeSpan.FromMinutes(1), async () =>
             {
                 _noticeHandler?.SendMessage("正在执行心跳检查...");
+                
+                // 计算运行时间
+                var runningTime = DateTime.Now - _startTime;
+                var runningMinutes = (int)runningTime.TotalMinutes;
                 
                 // 直接获取延迟时间
                 var time = await updateHandler.RunAvailabilityCheck();
@@ -374,13 +379,13 @@ namespace ServiceLib.ViewModels
                     _retryCount++;
                     if (_retryCount >= 5)
                     {
-                        _noticeHandler?.SendMessage("连接检测已失败5次,停止重试");
+                        _noticeHandler?.SendMessage($"服务运行{runningMinutes}分钟后连接检测已失败5次,停止重试");
                         return;
                     }
 
                     // 加倍重试间隔
                     _currentInterval *= 2;
-                    _noticeHandler?.SendMessage($"检测到连接失败,{_currentInterval}秒后进行第{_retryCount + 1}次重试...");
+                    _noticeHandler?.SendMessage($"服务运行{runningMinutes}分钟后检测到连接失败,{_currentInterval}秒后进行第{_retryCount + 1}次重试...");
                     
                     // 更新任务间隔
                     await taskHandler.AddTask("ConnectivityCheckTask", 
@@ -398,20 +403,19 @@ namespace ServiceLib.ViewModels
                     
                     if (time < 200) // 延迟小于200ms
                     {
-                        _noticeHandler?.SendMessage($"连接健康，延迟: {time}ms");
+                        _noticeHandler?.SendMessage($"服务运行{runningMinutes}分钟,连接健康，延迟: {time}ms");
                     }
                     else if (time < 500) // 延迟在200-500ms之间
                     {
-                        _noticeHandler?.SendMessage($"连接正常，延迟: {time}ms");
+                        _noticeHandler?.SendMessage($"服务运行{runningMinutes}分钟,连接正常，延迟: {time}ms");
                     }
                     else // 延迟大于500ms
                     {
-                        _noticeHandler?.SendMessage($"连接较慢，延迟: {time}ms");
+                        _noticeHandler?.SendMessage($"服务运行{runningMinutes}分钟,连接较慢，延迟: {time}ms");
                     }
                 }
             }, persistent: true);
         }
-
         #endregion Init
 
         #region Actions
