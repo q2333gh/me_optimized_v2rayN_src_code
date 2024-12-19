@@ -1,0 +1,11 @@
+[
+	{
+		"outboundTag": "block",
+		"port": "443",
+		"network": "udp"
+	},
+	{
+		"port": "0-65535",
+		"outboundTag": "proxy"
+	}
+]
